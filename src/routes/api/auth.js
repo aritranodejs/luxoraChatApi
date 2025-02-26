@@ -31,7 +31,7 @@ router.group('/', (router) => {
     router.post('/send-otp', loginController.loginOtp);
     router.post('/verify-otp', loginController.verifyOtp);
     router.get('/me', authentication, loginController.me);
-    router.get('/logout', authentication, loginController.logout);
+    router.delete('/logout', authentication, loginController.logout);
 });
 
 module.exports = router;
