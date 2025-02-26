@@ -1,0 +1,29 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+*.env
+package-lock.json
+
+# Dependency directories
+.pnpm/
+.npm/
+.yarn/
+
+# Optional: OS or Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Optional: logs and process-specific files
+logs/
+*.pid
+*.log
+
+# Ignore coverage output
+coverage/
+
+# Uploads
+public/uploads/

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .template-container {
+            max-width: 700px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-top: 10px solid #e34334; /* Matching top border with your site’s red */
+        }
+        .header {
+            text-align: center;
+        }
+        .header img {
+            max-width: 120px;
+        }
+        .header h1 {
+            color: #e34334; /* Using your site’s primary red color */
+            margin: 0;
+            font-size: 28px;
+        }
+        .text-muted {
+            color: #777;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #e34334;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+        .content-info {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #fdf7f7;
+            border-radius: 5px;
+        }
+        .content-info h2 {
+            color: #e34334;
+            margin: 0 0 10px;
+            font-size: 20px;
+        }
+        .content-info p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .contact-info {
+            text-align: left; /* Change from center to left */
+            padding: 20px 0;
+            font-size: 12px;
+            color: #777;
+          }
+        .contact-info a {
+            color: #e34334;
+            text-decoration: none;
+        }
+        .footer {
+            text-align: center;
+            background-color: #fdf7f7;
+            padding: 20px 0;
+            font-size: 12px;
+            color: #777;
+        }
+        .footer a {
+            color: #e34334;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="template-container">
+        <div class="header">
+          <img src="" alt="Logo" width="120">
+          <h1><%- title %></h1>
+        </div>
+        
+        <div class="content-info">
+          <%- content %>
+        </div>
+        <div class="contact-info">
+          <p>Sincerely,</p>
+          <p>Aritra Dutta</p>
+        </div>
+        <hr style ="color: #f4f4f4ef;"> 
+          <div class="footer">
+            <p>Thank you for connecting with us! 🙌</p>
+            <p>If you have any questions, feel free to contact us</a></p>
+            <p>© <%= new Date().getFullYear() %>, <%= process.env.APP_NAME || 'BCUZ' %>. All rights reserved.</p>
+          </div>
+        </hr>
+    </div>
+</body>
+</html>
