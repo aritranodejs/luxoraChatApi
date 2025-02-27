@@ -9,6 +9,9 @@ const User = sequelize.define('users', {
     name: {
         type: DataTypes.STRING
     },
+    slug: {
+        type: DataTypes.STRING
+    },
     email: {
         type: DataTypes.STRING
     },
@@ -43,7 +46,7 @@ const User = sequelize.define('users', {
     passwordResetTokenExpiry: {
         type: DataTypes.DATE
     },
-    authToken : {
+    authToken: {
         type: DataTypes.STRING
     },
     role: {

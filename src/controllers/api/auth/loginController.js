@@ -31,11 +31,11 @@ const login = async (req, res) => {
         });
 
         if (!user || !(await bcrypt.compare(password, user.password))) {
-            return response(res, { email : email }, 'Invalid credentials.', 401);
+            return response(res, {}, 'Invalid email or password.', 401);
         }
 
         if (user && user.status !== 'active') {
-            return response(res, { email : email }, 'User Account is inactive. Please contact support.', 401);
+            return response(res, {}, 'User is not active.', 401);
         }
 
         return response(res, { email : user?.email }, 'User login successfull.', 200);

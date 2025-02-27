@@ -13,7 +13,7 @@ const register = async (req, res) => {
             name: 'required',
             email: 'required|email',
             password: 'required',
-            confirmPassword: 'required|same:password'
+            confirmPassword: 'sometimes|same:password'
         });
         const matched = await validator.check();
         if (!matched) {
@@ -25,6 +25,7 @@ const register = async (req, res) => {
             email,
             password
         } = req.body;
+        let errors = {};
 
         const userExists = await User.findOne({
             where: {
@@ -33,7 +34,11 @@ const register = async (req, res) => {
         });
 
         if (userExists) {
-            return response(res, req.body, 'User already exists.', 409);
+            errors['email'] = {
+                message: 'Email already exists.',
+                rule: 'unique'
+            };
+            return response(res, errors, 'validation', 422);
         }
 
         const hashedPassword = bcrypt.hashSync(password, salt);
