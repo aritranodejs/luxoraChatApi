@@ -76,6 +76,9 @@ app.get('/health', (req, res) => {
     return response(res, {}, 'Server is healthy', 200);
 });
 
+// Relation Model
+require("./models/Index");
+
 // API routes
 const authRoutes = require('./routes/api/auth');
 app.use('/api/auth', limiter, authRoutes); // Apply rate limiting for security
