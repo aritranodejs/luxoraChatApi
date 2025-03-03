@@ -8,6 +8,7 @@ const { response } = require('../../helpers/response');
 const { authentication } = require('../../middleware/auth');
 
 // Controllers
+const userController = require('../../controllers/api/user/userController');
 const friendController = require('../../controllers/api/user/friendController');
 
 // Router
@@ -21,6 +22,8 @@ router.get('/', (req, res) => {
         return response(res, req.body, error.message, 500);
     }
 });
+
+router.get('/global-users', authentication, userController.index);
 
 router.group('/friends', (router) => {
     router.use(authentication);

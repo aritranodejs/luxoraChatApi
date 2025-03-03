@@ -77,7 +77,7 @@ app.get('/health', (req, res) => {
 });
 
 // Relation Model
-require("./models/Index");
+require("./models/Relation");
 
 // API routes
 const authRoutes = require('./routes/api/auth');

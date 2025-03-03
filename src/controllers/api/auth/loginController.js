@@ -135,7 +135,16 @@ const verifyOtp = async (req, res) => {
         user.authToken = generateAuthToken({ ...user.toJSON() });
         await user.save();
 
-        return response(res, { email : user?.email , authToken : user?.authToken }, 'Otp verified successfully.', 200);
+        let userDetails = await User.findOne({
+            where: {
+                id: { [Op.eq]: user.id }
+            },
+            attributes: {
+                exclude: ['password']
+            }
+        });
+
+        return response(res, userDetails, 'Otp verified successfully.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
     }
