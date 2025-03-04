@@ -11,6 +11,10 @@ const index = async (req, res) => {
         const { 
             id 
         } = req.user;
+
+        const {
+            status
+        } = req.query;
         
         let friends = await Friend.findAll({
             where: {
@@ -18,7 +22,7 @@ const index = async (req, res) => {
                     { senderId: id },
                     { receiverId: id }
                 ],
-                status: 'accepted'
+                status: status || 'accepted'
             },
             include: [
                 { 
@@ -34,15 +38,13 @@ const index = async (req, res) => {
             ]
         });
 
-        let friendsData = [];
-
-        friends.forEach(friend => {
-            if (friend.senderId === id) {
-                friendsData.push(friend.receiver);
-            } else {
-                friendsData.push(friend.sender);
-            }
-        });
+        let friendsData = friends.map(friend => ({
+            id: friend.id,
+            senderId: friend.senderId,
+            receiverId: friend.receiverId,
+            status: friend.status,
+            friendInfo: friend.senderId === id ? friend.receiver : friend.sender
+        }));
 
         return response(res, { friends: friendsData }, 'Friends.', 200);
     } catch (error) {
@@ -71,7 +73,72 @@ const store = async (req, res) => {
             senderId: id,
             receiverId: receiverId
         });
-        return response(res, friend, 'Friend request sent.', 200);
+
+        // Mail 
+        const subject = 'Friend Request From ' + req.user.name;
+        const receiver = await User.findOne({
+            where: {
+                id: receiverId
+            }
+        });
+        const content = `<div>
+                            <p> Hello ${receiver?.name},</p>
+                            <p> You have received a friend request from ${req.user.name}.</p>
+                            <p> Please login to your account to accept or reject the request.</p>
+                        </div>`;
+
+        const emailContent = await ejs.renderFile(emailTemplatePath, {
+            title: subject,
+            content: content
+        });
+        const mailOptions = {
+            ...mailOption,
+            to: receiver?.email,
+            subject: subject,
+            html: emailContent
+        };
+        await transporter.sendMail(mailOptions);
+
+        return response(res, friend, 'Friend request sent successfully.', 200);
+    } catch (error) {
+        return response(res, {}, error.message, 500);
+    }
+}
+
+const getFriendRequests = async (req, res) => {
+    try {
+        const { 
+            id 
+        } = req.user;
+
+        const friendRequests = await Friend.findAll({
+            where: {
+                receiverId: id,
+                status: 'pending'
+            },
+            include: [
+                { 
+                    model: User, 
+                    as: 'sender',
+                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline'] 
+                },
+                { 
+                    model: User, 
+                    as: 'receiver',
+                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline'] 
+                }
+            ]
+        });
+
+        let friendRequestsData = friendRequests.map(friend => ({
+            id: friend.id,
+            senderId: friend.senderId,
+            receiverId: friend.receiverId,
+            status: friend.status,
+            friendInfo: friend.sender
+        }));
+
+        return response(res, { friendRequests : friendRequestsData }, 'Friend requests.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
     }
@@ -111,7 +178,44 @@ const acceptOrReject = async (req, res) => {
         friend.status = status;
         await friend.save();
 
-        return response(res, friend, 'Friend request accepted.', 200);
+        return response(res, friend, `Friend request ${status}.`, 200);
+    } catch (error) {
+        return response(res, {}, error.message, 500);
+    }
+}
+
+const cancelRequest = async (req, res) => {
+    try {
+        const validator = new Validator(req.body, {
+            friendId: 'required'
+        });
+        const matched = await validator.check();
+        if (!matched) {
+            return response(res, validator.errors, 'validation', 422);
+        }
+        const { 
+            id 
+        } = req.user;
+
+        const {
+            friendId
+        } = req.body;
+
+        const friend = await Friend.findOne({
+            where: {
+                id: friendId,
+                [Op.or]: [
+                    { senderId: id },
+                    { receiverId: id }
+                ]
+            }
+        });
+        if (!friend) {
+            return response(res, {}, 'Friend not found.', 404);
+        }
+        await friend.destroy();
+
+        return response(res, {}, 'Friend request cancelled.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
     }
@@ -120,5 +224,7 @@ const acceptOrReject = async (req, res) => {
 module.exports = {
     index,
     store,
-    acceptOrReject
+    getFriendRequests,
+    acceptOrReject,
+    cancelRequest
 }

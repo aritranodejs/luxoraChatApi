@@ -29,7 +29,9 @@ router.group('/friends', (router) => {
     router.use(authentication);
     router.get('/', friendController.index);
     router.post('/send-request', friendController.store);
-    router.put('/accept-or-reject', friendController.acceptOrReject);
+    router.get('/get-friend-requests', friendController.getFriendRequests);
+    router.post('/accept-or-reject', friendController.acceptOrReject);
+    router.delete('/cancel-request', friendController.cancelRequest);
 });
 
 module.exports = router;
