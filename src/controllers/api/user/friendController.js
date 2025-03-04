@@ -8,14 +8,14 @@ const { User } = require('../../../models/User');
 
 const index = async (req, res) => {
     try {
-        const { 
-            id 
+        const {
+            id
         } = req.user;
 
         const {
             status
         } = req.query;
-        
+
         let friends = await Friend.findAll({
             where: {
                 [Op.or]: [
@@ -25,15 +25,15 @@ const index = async (req, res) => {
                 status: status || 'accepted'
             },
             include: [
-                { 
-                    model: User, 
+                {
+                    model: User,
                     as: 'sender',
-                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline'] 
+                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
                 },
-                { 
-                    model: User, 
+                {
+                    model: User,
                     as: 'receiver',
-                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline'] 
+                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
                 }
             ]
         });
@@ -61,8 +61,8 @@ const store = async (req, res) => {
         if (!matched) {
             return response(res, validator.errors, 'validation', 422);
         }
-        const { 
-            id 
+        const {
+            id
         } = req.user;
 
         const {
@@ -99,33 +99,22 @@ const store = async (req, res) => {
         };
         await transporter.sendMail(mailOptions);
 
-        return response(res, friend, 'Friend request sent successfully.', 200);
-    } catch (error) {
-        return response(res, {}, error.message, 500);
-    }
-}
-
-const getFriendRequests = async (req, res) => {
-    try {
-        const { 
-            id 
-        } = req.user;
-
+        // Emit Socket Event
         const friendRequests = await Friend.findAll({
             where: {
-                receiverId: id,
+                receiverId: receiverId,
                 status: 'pending'
             },
             include: [
-                { 
-                    model: User, 
+                {
+                    model: User,
                     as: 'sender',
-                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline'] 
+                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
                 },
-                { 
-                    model: User, 
+                {
+                    model: User,
                     as: 'receiver',
-                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline'] 
+                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
                 }
             ]
         });
@@ -138,7 +127,51 @@ const getFriendRequests = async (req, res) => {
             friendInfo: friend.sender
         }));
 
-        return response(res, { friendRequests : friendRequestsData }, 'Friend requests.', 200);
+        req.io.emitToUser(receiverId, 'friendRequests', {
+            count: friendRequestsData.length,
+            friendRequests: friendRequestsData,
+        });
+
+        return response(res, friend, 'Friend request sent successfully.', 200);
+    } catch (error) {
+        return response(res, {}, error.message, 500);
+    }
+}
+
+const getFriendRequests = async (req, res) => {
+    try {
+        const {
+            id
+        } = req.user;
+
+        const friendRequests = await Friend.findAll({
+            where: {
+                receiverId: id,
+                status: 'pending'
+            },
+            include: [
+                {
+                    model: User,
+                    as: 'sender',
+                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
+                },
+                {
+                    model: User,
+                    as: 'receiver',
+                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
+                }
+            ]
+        });
+
+        let friendRequestsData = friendRequests.map(friend => ({
+            id: friend.id,
+            senderId: friend.senderId,
+            receiverId: friend.receiverId,
+            status: friend.status,
+            friendInfo: friend.sender
+        }));
+
+        return response(res, { friendRequests: friendRequestsData, count: friendRequestsData.length }, 'Friend requests.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
     }
@@ -154,8 +187,8 @@ const acceptOrReject = async (req, res) => {
         if (!matched) {
             return response(res, validator.errors, 'validation', 422);
         }
-        const { 
-            id 
+        const {
+            id
         } = req.user;
 
         const {
@@ -193,8 +226,8 @@ const cancelRequest = async (req, res) => {
         if (!matched) {
             return response(res, validator.errors, 'validation', 422);
         }
-        const { 
-            id 
+        const {
+            id
         } = req.user;
 
         const {

@@ -53,7 +53,16 @@ app.use(helmet());  // Helmet middleware for security headers
 app.use(cors());
 
 // Create an HTTP server to pass to Socket.IO
+const socketIO = require('socket.io');
 const server = http.createServer(app);
+const io = socketIO(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+io.setMaxListeners(20); // Increase the limit to 20 listeners
+const socketHelper = require('./helpers/socket')(io); // Initialize the helper functions
 
 // Middleware to parse JSON and URL-encoded data
 app.use(express.urlencoded({ extended: true }));
@@ -62,9 +71,15 @@ app.use(express.json());
 // Middleware to serve static files
 app.use(express.static(path.join(__dirname, "public")));
 
+// Socket.io middleware (if needed for req.io)
+app.use((req, res, next) => {
+    req.io = socketHelper; // Use the helper functions
+    next();
+});
+
 // Global variables
 app.use((req, res, next) => {
-    res.locals.user = req.user;    
+    res.locals.user = req.user;
     next();
 });
 
@@ -84,10 +99,10 @@ const authRoutes = require('./routes/api/auth');
 app.use('/api/auth', limiter, authRoutes); // Apply rate limiting for security
 
 const userRoutes = require('./routes/api/user');
-app.use('/api/user', userRoutes); 
+app.use('/api/user', userRoutes);
 
 const guestRoutes = require('./routes/api/guest');
-app.use('/api/guest', guestRoutes); 
+app.use('/api/guest', guestRoutes);
 
 const adminRoutes = require('./routes/admin');
 app.use('/api/admin', adminRoutes);

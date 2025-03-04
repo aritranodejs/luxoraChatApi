@@ -24,6 +24,7 @@ router.get('/', (req, res) => {
 });
 
 router.get('/global-users', authentication, userController.index);
+router.post('/update-online-status', authentication, userController.updateUserOnlineStatus);
 
 router.group('/friends', (router) => {
     router.use(authentication);

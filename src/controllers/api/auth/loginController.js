@@ -133,6 +133,7 @@ const verifyOtp = async (req, res) => {
         user.otp = null;
         user.otpExpired = null;
         user.authToken = generateAuthToken({ ...user.toJSON() });
+        user.isOnline = true;
         await user.save();
 
         let userDetails = await User.findOne({
