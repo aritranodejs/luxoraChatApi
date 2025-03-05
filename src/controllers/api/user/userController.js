@@ -42,7 +42,12 @@ const updateUserOnlineStatus = async (req, res) => {
         }
         
         user.isOnline = isOnline;
+        user.lastSeen = new Date();
         await user.save();
+
+        req.io.emitToUser(userId, 'online-status', { 
+            isOnline: user.isOnline 
+        });
 
         return response(res, { isOnline : user?.isOnline }, 'User online status updated.', 200);
     } catch (error) {
