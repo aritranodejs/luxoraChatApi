@@ -16,35 +16,7 @@ const index = async (req, res) => {
             status
         } = req.query;
 
-        let friends = await Friend.findAll({
-            where: {
-                [Op.or]: [
-                    { senderId: id },
-                    { receiverId: id }
-                ],
-                status: status || 'accepted'
-            },
-            include: [
-                {
-                    model: User,
-                    as: 'sender',
-                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
-                },
-                {
-                    model: User,
-                    as: 'receiver',
-                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
-                }
-            ]
-        });
-
-        let friendsData = friends.map(friend => ({
-            id: friend.id,
-            senderId: friend.senderId,
-            receiverId: friend.receiverId,
-            status: friend.status,
-            friendInfo: friend.senderId === id ? friend.receiver : friend.sender
-        }));
+        const friendsData = await getFriendsByStatus(id, status);
 
         return response(res, { friends: friendsData }, 'Friends.', 200);
     } catch (error) {
@@ -144,37 +116,81 @@ const getFriendRequests = async (req, res) => {
             id
         } = req.user;
 
-        const friendRequests = await Friend.findAll({
-            where: {
-                receiverId: id,
-                status: 'pending'
-            },
-            include: [
-                {
-                    model: User,
-                    as: 'sender',
-                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
-                },
-                {
-                    model: User,
-                    as: 'receiver',
-                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
-                }
-            ]
-        });
-
-        let friendRequestsData = friendRequests.map(friend => ({
-            id: friend.id,
-            senderId: friend.senderId,
-            receiverId: friend.receiverId,
-            status: friend.status,
-            friendInfo: friend.sender
-        }));
+        const friendRequestsData = await getRequests(id);        
 
         return response(res, { friendRequests: friendRequestsData, count: friendRequestsData.length }, 'Friend requests.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
     }
+}
+
+const getRequests = async (userId) => {
+    const id = userId;
+    const friendRequests = await Friend.findAll({
+        where: {
+            receiverId: id,
+            status: 'pending'
+        },
+        include: [
+            {
+                model: User,
+                as: 'sender',
+                attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
+            },
+            {
+                model: User,
+                as: 'receiver',
+                attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
+            }
+        ]
+    });
+
+    let friendRequestsData = friendRequests.map(friend => ({
+        id: friend.id,
+        senderId: friend.senderId,
+        receiverId: friend.receiverId,
+        status: friend.status,
+        friendInfo: friend.sender
+    }));
+
+    return friendRequestsData;
+}
+
+const getFriendsByStatus = async (userId, reqStatus = null) => {
+    const id = userId;
+    const status = reqStatus;
+
+    let friends = await Friend.findAll({
+        where: {
+            [Op.or]: [
+                { senderId: id },
+                { receiverId: id }
+            ],
+            ...(status ? { status } : {})
+        },
+        include: [
+            {
+                model: User,
+                as: 'sender',
+                attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
+            },
+            {
+                model: User,
+                as: 'receiver',
+                attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
+            }
+        ]
+    });
+
+    let friendsData = friends.map(friend => ({
+        id: friend.id,
+        senderId: friend.senderId,
+        receiverId: friend.receiverId,
+        status: friend.status,
+        friendInfo: friend.senderId === id ? friend.receiver : friend.sender
+    }));
+
+    return friendsData;
 }
 
 const acceptOrReject = async (req, res) => {
@@ -234,7 +250,25 @@ const acceptOrReject = async (req, res) => {
             subject: subject,
             html: emailContent
         };
-        await transporter.sendMail(mailOptions);
+        await transporter.sendMail(mailOptions); 
+
+        // Emit to socket
+        const users = await User.findAll({
+            where: {
+                ...id ? { id: { [Op.ne]: id } } : {},
+                status: 'active',
+                role: 'user'
+            },
+            attributes: {
+                exclude: ['password']
+            }
+        });
+
+        req.io.emitToUser(id, 'friendListUpdated', { 
+            users,
+            friends: await getFriendsByStatus(id, 'accepted'),
+            pendingFriends: await getFriendsByStatus(id, 'pending'),
+        });
 
         return response(res, friend, `Friend request ${status}.`, 200);
     } catch (error) {
@@ -274,32 +308,7 @@ const cancelRequest = async (req, res) => {
         await friend.destroy();
 
         // Emit Socket Event
-        const friendRequests = await Friend.findAll({
-            where: {
-                receiverId: friend?.receiverId,
-                status: 'pending'
-            },
-            include: [
-                {
-                    model: User,
-                    as: 'sender',
-                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
-                },
-                {
-                    model: User,
-                    as: 'receiver',
-                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
-                }
-            ]
-        });
-
-        let friendRequestsData = friendRequests.map(friend => ({
-            id: friend.id,
-            senderId: friend.senderId,
-            receiverId: friend.receiverId,
-            status: friend.status,
-            friendInfo: friend.sender
-        }));
+        const friendRequestsData = await getRequests(id);        
 
         req.io.emitToUser(friend?.receiverId, 'friendRequests', {
             count: friendRequestsData.length,
