@@ -211,6 +211,31 @@ const acceptOrReject = async (req, res) => {
         friend.status = status;
         await friend.save();
 
+        // Mail to sender
+        const sender = await User.findOne({
+            where: {
+                id: friend.senderId
+            }
+        });
+
+        const subject = `${req.user?.name} has ${status} your friend request`;
+        const content = `<div>
+                            <p> Hello ${sender?.name},</p>
+                            <p>${req.user?.name} has ${status} your friend request.</p> 
+                        </div>`;
+
+        const emailContent = await ejs.renderFile(emailTemplatePath, {
+            title: subject,
+            content: content
+        });
+        const mailOptions = {
+            ...mailOption,
+            to: sender?.email,
+            subject: subject,
+            html: emailContent
+        };
+        await transporter.sendMail(mailOptions);
+
         return response(res, friend, `Friend request ${status}.`, 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
