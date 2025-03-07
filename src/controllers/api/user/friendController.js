@@ -273,6 +273,39 @@ const cancelRequest = async (req, res) => {
         }
         await friend.destroy();
 
+        // Emit Socket Event
+        const friendRequests = await Friend.findAll({
+            where: {
+                receiverId: friend?.receiverId,
+                status: 'pending'
+            },
+            include: [
+                {
+                    model: User,
+                    as: 'sender',
+                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
+                },
+                {
+                    model: User,
+                    as: 'receiver',
+                    attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline']
+                }
+            ]
+        });
+
+        let friendRequestsData = friendRequests.map(friend => ({
+            id: friend.id,
+            senderId: friend.senderId,
+            receiverId: friend.receiverId,
+            status: friend.status,
+            friendInfo: friend.sender
+        }));
+
+        req.io.emitToUser(friend?.receiverId, 'friendRequests', {
+            count: friendRequestsData.length,
+            friendRequests: friendRequestsData,
+        });
+
         return response(res, {}, 'Friend request cancelled.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
