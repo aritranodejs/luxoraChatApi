@@ -10,14 +10,21 @@ module.exports = (io) => {
             socket.join(userId); 
             console.log(`User ${userId} connected with socket ID: ${socket.id}`);
         });
-
-        // Handle Sending Messages
-        socket.on("sendMessage", ({ senderId, friendId, message }) => {
-            if (userSockets[friendId]) {
-                io.to(userSockets[friendId]).emit("receiveMessage", { senderId, message });
-            }
-        });
         
+        // Join a Chat Room
+        socket.on("joinChat", ({ room }) => {
+            socket.join(room);
+            console.log(`Socket ${socket.id} joined room: ${room}`);
+        });
+
+        // Handle Incoming Messages & Broadcast
+        socket.on("sendMessage", ({ room, senderId, receiverId, message }) => {
+            console.log(`Message from ${senderId} to ${receiverId}: ${message}`);
+
+            // Emit message to the chat room
+            io.to(room).emit("receiveMessage", { senderId, receiverId, message });
+        });
+
         // Handle Call Request
         socket.on("callUser", ({ callerId, friendId }) => {
             if (userSockets[friendId]) {

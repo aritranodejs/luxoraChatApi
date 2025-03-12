@@ -91,21 +91,29 @@ const store = async (req, res) => {
 
         if (!isFriend) return response(res, {}, 'You are not friends.', 403);
 
-        const message = await Message.create({
+        const message = new Message();
+        message.senderId = id;
+        message.receiverId = friend.id;
+        message.content = content;
+        await message.save();
+
+        // Create a Unique Room Name
+        const roomName = `room-${id}-${friend.id}`;
+
+        // Emit Message to Both Users in Room
+        req.io.emitToRoom(roomName, "receiveMessage", {
             senderId: id,
             receiverId: friend.id,
-            content: content
-        });
-
-        req.io.emitToUser(friend.id, "receiveMessage", {
-            senderId: id,
             message: content
         });
 
-        return response(res, message, 'Message sent.', 200);
+        return response(res, { message : message?.content }, 'Message sent.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
     }
 };
 
-module.exports = { chats, store };
+module.exports = { 
+    chats, 
+    store 
+};
