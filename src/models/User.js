@@ -31,6 +31,9 @@ const User = sequelize.define('users', {
     mobile: {
         type: DataTypes.STRING
     },
+    peerId: {
+        type: DataTypes.STRING
+    },
     otp: {
         type: DataTypes.STRING
     },

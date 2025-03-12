@@ -28,7 +28,7 @@ const authentication = (req, res, next) => {
         } else if (error.name === "JsonWebTokenError") {
           return response(res, {}, "Invalid authorization token.", 403);
         } else {
-          return response(res, {}, "Unauthorized.", 403);
+          return response(res, {}, "Failed to verify authorization token.", 403);
         }
       }
 

@@ -321,10 +321,62 @@ const cancelRequest = async (req, res) => {
     }
 }
 
+const getFriend = async (req, res) => {
+    try {
+        const {
+            friendSlug
+        } = req.query;
+
+        const user = await User.findOne({
+            where: {
+                slug: { [Op.eq]: friendSlug }
+            },
+            attributes: { exclude: ['password'] }
+        });
+
+        if (!user) {
+            return response(res, {}, 'Friend not found.', 404);
+        }
+
+        return response(res, { friend: user }, 'Friend details.', 200);
+    } catch (error) {
+        return response(res, {}, error.message, 500);
+    }
+};
+
+const updatePeerId = async (req, res) => {
+    try {
+        const {
+            friendSlug,
+            peerId
+        } = req.body;
+
+        const user = await User.findOne({
+            where: {
+                slug: { [Op.eq]: friendSlug }
+            },
+            attributes: ['id', 'name', 'email', 'mobile', 'status', 'isOnline', 'peerId']
+        });
+
+        if (!user) {
+            return response(res, {}, 'User not found.', 404);
+        }
+
+        user.peerId = peerId;
+        await user.save();
+
+        return response(res, user, 'User peer id updated.', 200);
+    } catch (error) {
+        return response(res, {}, error.message, 500);
+    }
+};
+
 module.exports = {
     index,
     store,
     getFriendRequests,
     acceptOrReject,
-    cancelRequest
+    cancelRequest,
+    getFriend,
+    updatePeerId
 }

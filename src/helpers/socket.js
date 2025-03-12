@@ -4,10 +4,45 @@ module.exports = (io) => {
     io.on('connection', (socket) => {
         console.log('A user connected');
 
+        // Register User with Socket ID
         socket.on('userId', (userId) => {
             userSockets[userId] = socket.id;
             socket.join(userId); 
             console.log(`User ${userId} connected with socket ID: ${socket.id}`);
+        });
+
+        // Handle Sending Messages
+        socket.on("sendMessage", ({ senderId, friendId, message }) => {
+            if (userSockets[friendId]) {
+                io.to(userSockets[friendId]).emit("receiveMessage", { senderId, message });
+            }
+        });
+        
+        // Handle Call Request
+        socket.on("callUser", ({ callerId, friendId }) => {
+            if (userSockets[friendId]) {
+                // Friend is online → Send Call Notification
+                io.to(userSockets[friendId]).emit("incomingCall", { callerId });
+                console.log(`Sent call notification from ${callerId} to ${friendId}`);
+            } else {
+                console.log(`User ${friendId} is not connected.`);
+            }
+        });
+
+        // Handle Call Accepted
+        socket.on("acceptCall", ({ callerId, friendId }) => {
+            if (userSockets[callerId]) {
+                io.to(userSockets[callerId]).emit("callAccepted", { friendId });
+                console.log(`User ${friendId} accepted call from ${callerId}`);
+            }
+        });
+
+        // Handle Call Rejected
+        socket.on("rejectCall", ({ callerId, friendId }) => {
+            if (userSockets[callerId]) {
+                io.to(userSockets[callerId]).emit("callRejected", { friendId });
+                console.log(`User ${friendId} rejected call from ${callerId}`);
+            }
         });
 
         socket.on('disconnect', () => {
