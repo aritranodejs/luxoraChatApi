@@ -51,8 +51,17 @@ app.use(helmet());  // Helmet middleware for security headers
 
 // Cors Middleware
 app.use(cors({
-    origin: ['*', 'http://localhost:3000', 'http://54.204.49.31:3000'], 
-    credentials: true
+    origin: function(origin, callback) {
+        const allowedOrigins = ['http://localhost:3000', 'http://54.204.49.31:3000'];
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Create an HTTP server to pass to Socket.IO
@@ -60,8 +69,9 @@ const socketIO = require('socket.io');
 const server = http.createServer(app);
 const io = socketIO(server, {
     cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
+        origin: ['http://localhost:3000', 'http://54.204.49.31:3000'],
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 io.setMaxListeners(20); // Increase the limit to 20 listeners
