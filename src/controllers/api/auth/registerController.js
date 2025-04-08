@@ -6,7 +6,7 @@ const ejs = require('ejs');
 const { response } = require('../../../helpers/response');
 const { Op } = require('sequelize');
 const { User } = require('../../../models/User');
-const { generateUniqueSlug } = require('../helpers/slugHelper');
+const { generateUniqueSlug } = require('../../../helpers/slugHelper');
 
 const register = async (req, res) => {
     try {
