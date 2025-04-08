@@ -1,5 +1,5 @@
 const { User } = require('../models/User');
-const slug = require('slug');
+const slugify = require('slugify');
 
 /**
  * Generates a URL-friendly slug from a string
@@ -7,8 +7,9 @@ const slug = require('slug');
  * @returns {string} - The generated slug
  */
 const generateSlug = (text) => {
-    return slug(text, {
+    return slugify(text, {
         lower: true,
+        strict: true,
         remove: /[*+~.()'"!:@]/g
     });
 };
