@@ -51,7 +51,7 @@ app.use(helmet());  // Helmet middleware for security headers
 
 // Cors Middleware
 app.use(cors({
-    origin: '*', 
+    origin: ['*', 'http://localhost:3000', 'http://54.204.49.31:3000'], 
     credentials: true
 }));
 
