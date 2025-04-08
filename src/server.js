@@ -50,7 +50,10 @@ const limiter = rateLimit({
 app.use(helmet());  // Helmet middleware for security headers
 
 // Cors Middleware
-app.use(cors());
+app.use(cors({
+    origin: '*', 
+    credentials: true
+}));
 
 // Create an HTTP server to pass to Socket.IO
 const socketIO = require('socket.io');
