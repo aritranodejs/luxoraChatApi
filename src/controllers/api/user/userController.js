@@ -49,7 +49,7 @@ const updateUserOnlineStatus = async (req, res) => {
             isOnline: user.isOnline 
         });
 
-        return response(res, { isOnline : user?.isOnline }, 'User online status updated.', 200);
+        return response(res, { isOnline : user?.isOnline, lastSeen : user?.lastSeen }, 'User online status updated.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
     }
