@@ -6,6 +6,9 @@ const cors = require('cors');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+const xss = require('xss');
+const sanitize = require('sanitize-html');
+const morgan = require('morgan');
 const { response } = require('./helpers/response');
 
 // Load environment variables from .env file
@@ -47,12 +50,32 @@ const limiter = rateLimit({
 });
 
 // Helmet security
-app.use(helmet());  // Helmet middleware for security headers
+app.use(helmet());  // Helmet middleware for security headers // prevent xss attacks
+
+// XSS Protection and sanitize user input
+app.use((req, res, next) => {
+    if (req.body) {
+        for (let key in req.body) {
+            if (typeof req.body[key] === 'string') {
+                // Apply both xss and sanitize-html safely
+                const xssClean = xss(req.body[key]);
+                req.body[key] = sanitize(xssClean, {
+                    allowedTags: [], // no HTML tags allowed
+                    allowedAttributes: {},
+                });
+            }
+        }
+    }
+    next();
+});
+
+// Morgan Middleware
+app.use(morgan('combined'));
 
 // Cors Middleware
 app.use(cors({
     origin: function(origin, callback) {
-        const allowedOrigins = ['http://localhost:3000', 'http://54.204.49.31:3000'];
+        const allowedOrigins = ['http://localhost:3000', 'http://54.204.49.31:3000', '*'];
         if (!origin || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
@@ -77,9 +100,9 @@ const io = socketIO(server, {
 io.setMaxListeners(20); // Increase the limit to 20 listeners
 const socketHelper = require('./helpers/socket')(io); // Initialize the helper functions
 
-// Middleware to parse JSON and URL-encoded data
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+// Middleware to parse JSON and URL-encoded data with limit for 1mb payload
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
 // Middleware to serve static files
 app.use(express.static(path.join(__dirname, "public")));
@@ -109,7 +132,7 @@ require("./models/Relation");
 
 // API routes
 const authRoutes = require('./routes/api/auth');
-app.use('/api/auth', limiter, authRoutes); // Apply rate limiting for security
+app.use('/api/auth', limiter, authRoutes); // Apply rate limiting for security // prevent brute force and dos attack
 
 const userRoutes = require('./routes/api/user');
 app.use('/api/user', userRoutes);
