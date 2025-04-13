@@ -75,7 +75,7 @@ app.use(morgan('combined'));
 // Cors Middleware
 app.use(cors({
     origin: function(origin, callback) {
-        const allowedOrigins = ['http://localhost:3000', 'http://54.204.49.31:3000', '*'];
+        const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'];
         if (!origin || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
