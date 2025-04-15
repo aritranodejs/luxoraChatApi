@@ -15,6 +15,10 @@ const Message = sequelize.define('message', {
   content: {
     type: DataTypes.TEXT
   },
+  isEncrypted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
   status: {
     type: DataTypes.ENUM('sent', 'delivered', 'read')
   }
