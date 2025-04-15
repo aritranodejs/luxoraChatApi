@@ -92,7 +92,7 @@ const socketIO = require('socket.io');
 const server = http.createServer(app);
 const io = socketIO(server, {
     cors: {
-        origin: ['http://localhost:3000', 'http://54.204.49.31:3000', 'https://luxora.ddns.net'],
+        origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
         methods: ["GET", "POST"],
         credentials: true
     }
