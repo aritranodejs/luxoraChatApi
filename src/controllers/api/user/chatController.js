@@ -141,7 +141,139 @@ const store = async (req, res) => {
     }
 };
 
+const updateMessageStatus = async (req, res) => {
+    try {
+        const { id } = req.user;
+        const { messageIds, status } = req.body;
+        
+        if (!messageIds || !Array.isArray(messageIds) || !['delivered', 'read'].includes(status)) {
+            return response(res, {}, 'Invalid request format', 400);
+        }
+
+        await Message.update(
+            { status },
+            { 
+                where: { 
+                    id: messageIds,
+                    receiverId: id, // Only recipient can update status
+                    status: { [Op.ne]: status } // Don't update if already in this status
+                }
+            }
+        );
+
+        // Notify senders that messages have been read/delivered
+        const messages = await Message.findAll({
+            where: { id: messageIds }
+        });
+
+        // Group messages by sender for efficient socket updates
+        const senderGroups = {};
+        messages.forEach(message => {
+            const senderId = message.senderId;
+            if (!senderGroups[senderId]) {
+                senderGroups[senderId] = [];
+            }
+            senderGroups[senderId].push(message.id);
+        });
+
+        // Emit events to each sender
+        Object.keys(senderGroups).forEach(senderId => {
+            const roomName = `user-${senderId}`;
+            req.io.emitToRoom(roomName, "messageStatusUpdated", {
+                messageIds: senderGroups[senderId],
+                status: status
+            });
+        });
+
+        return response(res, {}, `Messages marked as ${status}`, 200);
+    } catch (error) {
+        console.error('Error updating message status:', error);
+        return response(res, {}, error.message, 500);
+    }
+};
+
+// Setup socket handlers for message status
+const setupMessageStatusHandlers = (io, socket, userId) => {
+    // Join user to their personal room for status updates
+    const userRoom = `user-${userId}`;
+    socket.join(userRoom);
+    
+    // Handle delivered status - when user connects or receives messages
+    socket.on('markAsDelivered', async (messageIds) => {
+        if (!messageIds || !Array.isArray(messageIds)) return;
+        
+        await Message.update(
+            { status: 'delivered' },
+            { 
+                where: { 
+                    id: messageIds,
+                    receiverId: userId,
+                    status: 'sent'
+                }
+            }
+        );
+        
+        // Notify senders
+        const messages = await Message.findAll({
+            where: { id: messageIds }
+        });
+        
+        const senderGroups = {};
+        messages.forEach(message => {
+            if (!senderGroups[message.senderId]) {
+                senderGroups[message.senderId] = [];
+            }
+            senderGroups[message.senderId].push(message.id);
+        });
+        
+        Object.keys(senderGroups).forEach(senderId => {
+            io.to(`user-${senderId}`).emit('messageStatusUpdated', {
+                messageIds: senderGroups[senderId],
+                status: 'delivered'
+            });
+        });
+    });
+    
+    // Handle read status from socket event
+    socket.on('markAsRead', async (messageIds) => {
+        if (!messageIds || !Array.isArray(messageIds)) return;
+        
+        await Message.update(
+            { status: 'read' },
+            { 
+                where: { 
+                    id: messageIds,
+                    receiverId: userId,
+                    status: { [Op.ne]: 'read' }
+                }
+            }
+        );
+        
+        // Notify senders
+        const messages = await Message.findAll({
+            where: { id: messageIds }
+        });
+        
+        const senderGroups = {};
+        messages.forEach(message => {
+            if (!senderGroups[message.senderId]) {
+                senderGroups[message.senderId] = [];
+            }
+            senderGroups[message.senderId].push(message.id);
+        });
+        
+        Object.keys(senderGroups).forEach(senderId => {
+            io.to(`user-${senderId}`).emit('messageStatusUpdated', {
+                messageIds: senderGroups[senderId],
+                status: 'read'
+            });
+        });
+    });
+};
+
 module.exports = {
     chats,
-    store
+    store,
+    updateMessageStatus,
+    setupMessageStatusHandlers
 };

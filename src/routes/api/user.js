@@ -42,6 +42,7 @@ router.group('/chats', (router) => {
     router.use(authentication);
     router.get('/get-chats', chatController.chats);
     router.post('/send-message', chatController.store);
+    router.post('/update-message-status', chatController.updateMessageStatus);
 });
 
 module.exports = router;
