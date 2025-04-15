@@ -79,6 +79,7 @@ app.use(cors({
         if (!origin || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
+            console.log('CORS blocked origin:', origin);
             callback(new Error('Not allowed by CORS'));
         }
     },
@@ -91,11 +92,14 @@ app.use(cors({
 const socketIO = require('socket.io');
 const server = http.createServer(app);
 const io = socketIO(server, {
+    path: '/socket.io/',
     cors: {
         origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
         methods: ["GET", "POST"],
         credentials: true
-    }
+    },
+    transports: ['polling', 'websocket'],
+    allowEIO3: true //
 });
 io.setMaxListeners(20); // Increase the limit to 20 listeners
 const socketHelper = require('./helpers/socket')(io); // Initialize the helper functions
@@ -125,6 +129,14 @@ global.blacklistedTokens = new Set();
 // Routes
 app.get('/health', (req, res) => {
     return response(res, {}, 'Server is healthy', 200);
+});
+
+// Socket.io health check
+app.get('/socket-health', (req, res) => {
+    return response(res, { 
+        connected: io.engine?.clientsCount || 0,
+        namespace: Object.keys(io.nsps || {})
+    }, 'Socket.IO status', 200);
 });
 
 // Relation Model
