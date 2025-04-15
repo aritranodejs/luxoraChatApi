@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Test</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #status { margin: 20px 0; padding: 10px; background-color: #f0f0f0; }
+        #log { height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Socket.IO Connection Test</h1>
+    <div id="status">Connection status: <span id="connection-status">Disconnected</span></div>
+    <button id="connect-btn">Connect</button>
+    <button id="disconnect-btn" disabled>Disconnect</button>
+    <div id="log"></div>
+
+    <script>
+        const log = document.getElementById('log');
+        const statusEl = document.getElementById('connection-status');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        let socket;
+
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = type;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        connectBtn.addEventListener('click', () => {
+            try {
+                addLog('Attempting to connect...', 'info');
+                
+                // Get the current hostname to decide which socket URL to use
+                const host = window.location.hostname;
+                const currentUrl = window.location.origin;
+                addLog(`Current URL: ${currentUrl}`, 'info');
+                
+                // Create socket with explicit configuration
+                socket = io({
+                    path: '/socket.io/',
+                    transports: ['polling', 'websocket'],
+                    reconnectionAttempts: 3,
+                    reconnectionDelay: 1000,
+                    reconnection: true,
+                    forceNew: true
+                });
+
+                socket.on('connect', () => {
+                    statusEl.textContent = 'Connected';
+                    statusEl.style.color = 'green';
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                    addLog(`Connected successfully. Socket ID: ${socket.id}`, 'success');
+                    
+                    // Get transport info
+                    const transport = socket.io.engine.transport.name;
+                    addLog(`Transport: ${transport}`, 'info');
+                });
+
+                socket.on('connect_error', (error) => {
+                    addLog(`Connection error: ${error.message}`, 'error');
+                });
+
+                socket.on('disconnect', (reason) => {
+                    statusEl.textContent = 'Disconnected';
+                    statusEl.style.color = 'red';
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                    addLog(`Disconnected: ${reason}`, 'error');
+                });
+
+                socket.on('reconnect_attempt', (attempt) => {
+                    addLog(`Reconnection attempt: ${attempt}`, 'info');
+                });
+
+                socket.on('reconnect_failed', () => {
+                    addLog('Failed to reconnect', 'error');
+                });
+
+                socket.on('error', (error) => {
+                    addLog(`Error: ${error}`, 'error');
+                });
+            } catch (e) {
+                addLog(`Exception: ${e.message}`, 'error');
+            }
+        });
+
+        disconnectBtn.addEventListener('click', () => {
+            if (socket) {
+                socket.disconnect();
+                addLog('Manually disconnected', 'info');
+            }
+        });
+
+        // Add browser info
+        addLog(`Browser: ${navigator.userAgent}`, 'info');
+        addLog(`Location: ${window.location.href}`, 'info');
+    </script>
+</body>
+</html> 

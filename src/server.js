@@ -99,8 +99,26 @@ const io = socketIO(server, {
         credentials: true
     },
     transports: ['polling', 'websocket'],
-    allowEIO3: true //
+    allowEIO3: true,
+    pingTimeout: 60000, // Increase ping timeout for slow connections
+    pingInterval: 25000, // Increase ping interval
+    upgradeTimeout: 30000, // Increase upgrade timeout
+    maxHttpBufferSize: 1e8, // Increase max buffer size
+    allowUpgrades: true,
+    cookie: {
+        name: 'io',
+        path: '/',
+        httpOnly: true,
+        sameSite: 'none',
+        secure: process.env.NODE_ENV === 'production'
+    }
 });
+
+// Additional Socket.IO configuration for proxies
+io.engine.on("connection_error", (err) => {
+    console.log('Socket connection error:', err);
+});
+
 io.setMaxListeners(20); // Increase the limit to 20 listeners
 const socketHelper = require('./helpers/socket')(io); // Initialize the helper functions
 
@@ -137,6 +155,35 @@ app.get('/socket-health', (req, res) => {
         connected: io.engine?.clientsCount || 0,
         namespace: Object.keys(io.nsps || {})
     }, 'Socket.IO status', 200);
+});
+
+// Socket.io debug info
+app.get('/socket-debug', (req, res) => {
+    return response(res, {
+        connected: io.engine?.clientsCount || 0,
+        namespaces: Object.keys(io.nsps || {}),
+        config: {
+            path: io.path(),
+            transports: io._opts.transports,
+            cors: io._opts.cors,
+            origins: process.env.ALLOWED_ORIGINS,
+            serverDomain: req.headers.host,
+            clientOrigin: req.headers.origin || 'unknown'
+        },
+        env: {
+            nodeEnv: process.env.NODE_ENV,
+            appUrl: process.env.APP_URL,
+            siteUrl: process.env.SITE_URL
+        }
+    }, 'Socket.IO debug info', 200);
+});
+
+// Socket.io test page
+app.get('/socket-test', (req, res) => {
+    res.render('socket-test', {
+        title: 'Socket.IO Test',
+        layout: false
+    });
 });
 
 // Relation Model
