@@ -1,4 +1,4 @@
-const { EncryptionKey } = require('../models/encryptionKey');
+const { EncryptionKey } = require('../models/Encryption');
 const { generateEncryptionKey } = require('../helpers/encryptionHelper');
 const { Op } = require('sequelize');
 
