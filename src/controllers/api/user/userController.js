@@ -40,9 +40,13 @@ const updateUserOnlineStatus = async (req, res) => {
         if (!user) {
             return response(res, {}, 'User not found.', 404);
         }
-        
-        user.isOnline = isOnline;
-        user.lastSeen = new Date();
+
+        if (user.isAI) { // AI user is always online
+            user.isOnline = true;
+        } else {
+            user.isOnline = isOnline;
+            user.lastSeen = new Date();
+        }
         await user.save();
 
         req.io.emitToUser(userId, 'online-status', { 
