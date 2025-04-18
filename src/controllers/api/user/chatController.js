@@ -6,22 +6,23 @@ const { Friend } = require('../../../models/Friend');
 const { Message } = require('../../../models/Message');
 const encryptionKeyService = require('../../../services/EncryptionKeyService');
 const { encryptMessage, decryptMessage } = require('../../../helpers/encryptionHelper');
+const axios = require('axios');
 
 const chats = async (req, res) => {
     try {
-        const { 
-            id 
+        const {
+            id
         } = req.user;
-        const { 
-            friendSlug 
+        const {
+            friendSlug
         } = req.query;
 
-        const friend = await User.findOne({ 
-            where: { 
-                slug: friendSlug 
-            } 
+        const friend = await User.findOne({
+            where: {
+                slug: friendSlug
+            }
         });
-        if (!friend) { 
+        if (!friend) {
             return response(res, {}, 'Friend not found.', 404);
         }
 
@@ -82,23 +83,23 @@ const store = async (req, res) => {
             return response(res, validator.errors, 'validation', 422);
         }
 
-        const { 
-            id 
+        const {
+            id
         } = req.user;
-        const { 
-            friendSlug, 
-            content 
+        const {
+            friendSlug,
+            content
         } = req.body;
 
-        const friend = await User.findOne({ 
-            where: { 
-                slug: friendSlug 
-            } 
+        const friend = await User.findOne({
+            where: {
+                slug: friendSlug
+            }
         });
 
         if (!friend) {
             return response(res, {}, 'Friend not found.', 404);
-        } 
+        }
 
         const isFriend = await Friend.findOne({
             where: {
@@ -113,10 +114,11 @@ const store = async (req, res) => {
 
         // Get or create encryption key for this chat
         const encryptionKey = await encryptionKeyService.getOrCreateEncryptionKey(id, friend.id);
-        
+
         // Encrypt the message content
         const encryptedContent = encryptMessage(content, encryptionKey);
 
+        // Store user's message
         const message = new Message();
         message.senderId = id;
         message.receiverId = friend.id;
@@ -131,8 +133,67 @@ const store = async (req, res) => {
         req.io.emitToRoom(roomName, "receiveMessage", {
             senderId: id,
             receiverId: friend.id,
-            message: content
+            message: content,
+            messageId: message.id
         });
+
+        // Handle AI response if the friend is an AI
+        if (friend.isAI) {
+            try {
+                // Prepare message history (can be enhanced to include previous messages)
+                const messageHistory = [
+                    { role: "system", content: "You are a helpful assistant." },
+                    { role: "user", content: content }
+                ];
+
+                // Call OpenAI API
+                const aiResponse = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
+                    model: "meta-llama/llama-4-maverick:free", // or try mistral, claude, etc.
+                    messages: messageHistory
+                }, {
+                    headers: {
+                        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                // Get the AI response text
+                const aiMessageContent = aiResponse.data.choices[0].message.content;
+
+                // Encrypt the AI message
+                const encryptedAiContent = encryptMessage(aiMessageContent, encryptionKey);
+
+                // Store the AI response in the database
+                const aiMessage = new Message();
+                aiMessage.senderId = friend.id;
+                aiMessage.receiverId = id;
+                aiMessage.content = encryptedAiContent;
+                aiMessage.isEncrypted = true;
+                aiMessage.status = 'sent'; // Initial status
+                await aiMessage.save();
+
+                // Emit the AI response to the user
+                req.io.emitToRoom(roomName, "receiveMessage", {
+                    senderId: friend.id,
+                    receiverId: id,
+                    message: aiMessageContent,
+                    messageId: aiMessage.id
+                });
+
+                return response(res, {
+                    message: content,
+                    aiResponse: aiMessageContent
+                }, 'Message sent and AI responded.', 200);
+
+            } catch (aiError) {
+                console.error('Error getting AI response:', aiError.response?.data || aiError.message);
+                // We still return 200 because the user message was sent successfully
+                return response(res, {
+                    message: content,
+                    aiError: 'Could not get AI response at this time'
+                }, 'Message sent but AI could not respond.', 200);
+            }
+        }
 
         return response(res, { message: content }, 'Message sent.', 200);
     } catch (error) {
@@ -145,15 +206,15 @@ const updateMessageStatus = async (req, res) => {
     try {
         const { id } = req.user;
         const { messageIds, status } = req.body;
-        
+
         if (!messageIds || !Array.isArray(messageIds) || !['delivered', 'read'].includes(status)) {
             return response(res, {}, 'Invalid request format', 400);
         }
 
         await Message.update(
             { status },
-            { 
-                where: { 
+            {
+                where: {
                     id: messageIds,
                     receiverId: id, // Only recipient can update status
                     status: { [Op.ne]: status } // Don't update if already in this status
@@ -197,27 +258,27 @@ const setupMessageStatusHandlers = (io, socket, userId) => {
     // Join user to their personal room for status updates
     const userRoom = `user-${userId}`;
     socket.join(userRoom);
-    
+
     // Handle delivered status - when user connects or receives messages
     socket.on('markAsDelivered', async (messageIds) => {
         if (!messageIds || !Array.isArray(messageIds)) return;
-        
+
         await Message.update(
             { status: 'delivered' },
-            { 
-                where: { 
+            {
+                where: {
                     id: messageIds,
                     receiverId: userId,
                     status: 'sent'
                 }
             }
         );
-        
+
         // Notify senders
         const messages = await Message.findAll({
             where: { id: messageIds }
         });
-        
+
         const senderGroups = {};
         messages.forEach(message => {
             if (!senderGroups[message.senderId]) {
@@ -225,7 +286,7 @@ const setupMessageStatusHandlers = (io, socket, userId) => {
             }
             senderGroups[message.senderId].push(message.id);
         });
-        
+
         Object.keys(senderGroups).forEach(senderId => {
             io.to(`user-${senderId}`).emit('messageStatusUpdated', {
                 messageIds: senderGroups[senderId],
@@ -233,27 +294,27 @@ const setupMessageStatusHandlers = (io, socket, userId) => {
             });
         });
     });
-    
+
     // Handle read status from socket event
     socket.on('markAsRead', async (messageIds) => {
         if (!messageIds || !Array.isArray(messageIds)) return;
-        
+
         await Message.update(
             { status: 'read' },
-            { 
-                where: { 
+            {
+                where: {
                     id: messageIds,
                     receiverId: userId,
                     status: { [Op.ne]: 'read' }
                 }
             }
         );
-        
+
         // Notify senders
         const messages = await Message.findAll({
             where: { id: messageIds }
         });
-        
+
         const senderGroups = {};
         messages.forEach(message => {
             if (!senderGroups[message.senderId]) {
@@ -261,7 +322,7 @@ const setupMessageStatusHandlers = (io, socket, userId) => {
             }
             senderGroups[message.senderId].push(message.id);
         });
-        
+
         Object.keys(senderGroups).forEach(senderId => {
             io.to(`user-${senderId}`).emit('messageStatusUpdated', {
                 messageIds: senderGroups[senderId],
