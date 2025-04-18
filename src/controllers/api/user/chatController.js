@@ -34,7 +34,7 @@ const chats = async (req, res) => {
             }
         });
 
-        if (!isFriend) return response(res, {}, 'You are not friends.', 403);
+        if (!friend?.isAI && !isFriend) return response(res, {}, 'You are not friends.', 403);
 
         const messages = await Message.findAll({
             where: {
@@ -109,7 +109,7 @@ const store = async (req, res) => {
             }
         });
 
-        if (!isFriend) return response(res, {}, 'You are not friends.', 403);
+        if (!friend?.isAI && !isFriend) return response(res, {}, 'You are not friends.', 403);
 
         // Get or create encryption key for this chat
         const encryptionKey = await encryptionKeyService.getOrCreateEncryptionKey(id, friend.id);
