@@ -140,39 +140,24 @@ const store = async (req, res) => {
         // Handle AI response if the friend is an AI
         if (friend.isAI) {
             try {
-                // Prepare message history (can be enhanced to include previous messages)
-                const messageHistory = [
-                    { role: "system", content: "You are a helpful assistant." },
-                    { role: "user", content: content }
-                ];
+                const aiMessageContent = await handleAIResponse(content);
 
-                // Call OpenAI API
-                const aiResponse = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
-                    model: "meta-llama/llama-4-maverick:free", // or try mistral, claude, etc.
-                    messages: messageHistory
-                }, {
-                    headers: {
-                        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                        "Content-Type": "application/json"
-                    }
-                });
+                if (!aiMessageContent || aiMessageContent instanceof Error) {
+                    throw new Error("Invalid AI response");
+                }
 
-                // Get the AI response text
-                const aiMessageContent = aiResponse.data.choices[0].message.content;
-
-                // Encrypt the AI message
                 const encryptedAiContent = encryptMessage(aiMessageContent, encryptionKey);
 
-                // Store the AI response in the database
-                const aiMessage = new Message();
-                aiMessage.senderId = friend.id;
-                aiMessage.receiverId = id;
-                aiMessage.content = encryptedAiContent;
-                aiMessage.isEncrypted = true;
-                aiMessage.status = 'sent'; // Initial status
+                const aiMessage = new Message({
+                    senderId: friend.id,
+                    receiverId: id,
+                    content: encryptedAiContent,
+                    isEncrypted: true,
+                    status: 'sent'
+                });
+
                 await aiMessage.save();
 
-                // Emit the AI response to the user
                 req.io.emitToRoom(roomName, "receiveMessage", {
                     senderId: friend.id,
                     receiverId: id,
@@ -185,12 +170,12 @@ const store = async (req, res) => {
                     aiResponse: aiMessageContent
                 }, 'Message sent and AI responded.', 200);
 
-            } catch (aiError) {
-                console.error('Error getting AI response:', aiError.response?.data || aiError.message);
-                // We still return 200 because the user message was sent successfully
+            } catch (error) {
+                console.error('AI response error:', error.message || error);
+
                 return response(res, {
                     message: content,
-                    aiError: 'Could not get AI response at this time'
+                    aiError: 'AI could not respond at this time.'
                 }, 'Message sent but AI could not respond.', 200);
             }
         }
@@ -198,7 +183,50 @@ const store = async (req, res) => {
         return response(res, { message: content }, 'Message sent.', 200);
     } catch (error) {
         console.error('Error sending message:', error);
-        return response(res, {}, error.message, 500);
+        return response(res, {}, error?.message, 500);
+    }
+};
+
+const handleAIResponse = async (message) => {
+    try {
+        // Prepare message history (can be enhanced to include previous messages)
+        // const messageHistory = [
+        //     { role: "system", content: "You are a helpful assistant." },
+        //     { role: "user", content: message }
+        // ];
+
+        // // Call OpenAI API
+        // const aiResponse = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
+        //     model: "deepseek/deepseek-chat-v3-0324:free", // or try mistral, claude, etc.
+        //     messages: messageHistory
+        // }, {
+        //     headers: {
+        //         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        //         "Content-Type": "application/json"
+        //     }
+        // });
+        const payload = {
+            model: "llama3-8b-8192", // You can also try: mixtral-8x7b-32768
+            messages: [
+                {
+                    role: "user",
+                    content: message,
+                },
+            ],
+            temperature: 0.7,
+            max_tokens: 300,
+        };
+
+        const aiResponse = await axios.post("https://api.groq.com/openai/v1/chat/completions", payload, {
+            headers: {
+                "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                "Content-Type": "application/json"
+            }
+        });
+        
+        return aiResponse.data?.choices[0]?.message?.content;
+    } catch (error) {
+        return new Error(error.response?.data || error.message);
     }
 };
 
