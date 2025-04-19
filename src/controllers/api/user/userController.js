@@ -25,41 +25,65 @@ const index = async (req, res) => {
     }
 }
 
-const updateUserOnlineStatus = async (req, res) => {
-    try {
-        const {
-            userId,
-            isOnline
-        } = req.body;
+// Socket handler for online status updates
+const setupOnlineStatusHandlers = (io, socket, userId) => {
+    console.log('setupOnlineStatusHandlers', userId);
+    // Join user-specific room for targeted events
+    socket.join(`user-${userId}`);
+    
+    // Handle user coming online when socket connects
+    updateUserOnlineStatusInternal(io, userId, true);
 
+    // Handle status changes via socket event
+    socket.on('updateOnlineStatus', (data) => {
+        updateUserOnlineStatusInternal(io, userId, data.isOnline);
+    });
+
+    // Handle user going offline when socket disconnects
+    socket.on('disconnect', () => {
+        updateUserOnlineStatusInternal(io, userId, false);
+    });
+};
+
+// Internal function to update user online status
+const updateUserOnlineStatusInternal = async (io, userId, isOnline) => {
+    try {
         const user = await User.findOne({
             where: {
                 id: userId
             }
         });
-        if (!user) {
-            return response(res, {}, 'User not found.', 404);
-        }
+        
+        if (!user) return;
 
-        if (user.isAI) { // AI user is always online
+        // AI users are always online
+        if (user.isAI) {
             user.isOnline = true;
         } else {
             user.isOnline = isOnline;
             user.lastSeen = new Date();
         }
+        
         await user.save();
 
-        req.io.emitToUser(userId, 'online-status', { 
-            isOnline: user.isOnline 
+        // Broadcast to all connected clients
+        io.emit('userStatusChanged', { 
+            userId: user.id,
+            isOnline: user.isOnline,
+            lastSeen: user.lastSeen
         });
-
-        return response(res, { isOnline : user?.isOnline, lastSeen : user?.lastSeen }, 'User online status updated.', 200);
+        
+        // Emit specific event for the user's own status
+        io.to(`user-${userId}`).emit('onlineStatus', { 
+            isOnline: user.isOnline,
+            lastSeen: user.lastSeen
+        });
     } catch (error) {
-        return response(res, {}, error.message, 500);
+        console.error('Error updating user online status:', error);
     }
 };
 
 module.exports = {
     index,
-    updateUserOnlineStatus
-}
+    setupOnlineStatusHandlers
+};

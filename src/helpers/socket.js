@@ -1,3 +1,9 @@
+const { setupMessageStatusHandlers } = require('../controllers/api/user/chatController');
+const { setupOnlineStatusHandlers } = require('../controllers/api/user/userController');
+const { Message } = require('../models/Message');
+const { User } = require('../models/User');
+const jwt = require('jsonwebtoken');
+
 module.exports = (io) => {
     const userSockets = {}; // Store user IDs and their connected socket IDs
 
@@ -5,10 +11,131 @@ module.exports = (io) => {
         console.log('A user connected');
 
         // Register User with Socket ID
-        socket.on('userId', (userId) => {
+        socket.on('userId', async (userId) => {
+            if (!userId) return;
+            
             userSockets[userId] = socket.id;
+            socket.join(`user-${userId}`); // Join user-specific room
             socket.join(userId); 
             console.log(`User ${userId} connected with socket ID: ${socket.id}`);
+            
+            // Setup online status handlers
+            setupOnlineStatusHandlers(io, socket, userId);
+            
+            // Setup message status handlers
+            setupMessageStatusHandlers(io, socket, userId);
+            
+            // Mark pending messages as delivered when user connects
+            try {
+                const pendingMessages = await Message.findAll({
+                    where: {
+                        receiverId: userId,
+                        status: 'sent'
+                    },
+                    attributes: ['id']
+                });
+                
+                if (pendingMessages.length > 0) {
+                    const messageIds = pendingMessages.map(msg => msg.id);
+                    // Update status to delivered
+                    await Message.update(
+                        { status: 'delivered' },
+                        { where: { id: messageIds } }
+                    );
+                    
+                    // Notify senders
+                    const messages = await Message.findAll({
+                        where: { id: messageIds },
+                        attributes: ['id', 'senderId']
+                    });
+                    
+                    const senderGroups = {};
+                    messages.forEach(message => {
+                        if (!senderGroups[message.senderId]) {
+                            senderGroups[message.senderId] = [];
+                        }
+                        senderGroups[message.senderId].push(message.id);
+                    });
+                    
+                    Object.keys(senderGroups).forEach(senderId => {
+                        io.to(`user-${senderId}`).emit('messageStatusUpdated', {
+                            messageIds: senderGroups[senderId],
+                            status: 'delivered'
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error('Error processing pending messages:', error);
+            }
+        });
+        
+        // Authentication via token
+        socket.on('authenticate', async (data) => {
+            try {
+                const { token } = data;
+                if (!token) return;
+                
+                // Verify JWT token
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                const userId = decoded.id;
+                
+                // Register user with socket
+                userSockets[userId] = socket.id;
+                socket.join(`user-${userId}`); // Join user-specific room
+                socket.join(userId);
+                console.log(`User ${userId} authenticated with socket ID: ${socket.id}`);
+                
+                // Setup online status handlers
+                setupOnlineStatusHandlers(io, socket, userId);
+                
+                // Setup message status handlers
+                setupMessageStatusHandlers(io, socket, userId);
+                
+                // Mark pending messages as delivered
+                try {
+                    const pendingMessages = await Message.findAll({
+                        where: {
+                            receiverId: userId,
+                            status: 'sent'
+                        },
+                        attributes: ['id']
+                    });
+                    
+                    if (pendingMessages.length > 0) {
+                        const messageIds = pendingMessages.map(msg => msg.id);
+                        // Update status to delivered
+                        await Message.update(
+                            { status: 'delivered' },
+                            { where: { id: messageIds } }
+                        );
+                        
+                        // Notify senders
+                        const messages = await Message.findAll({
+                            where: { id: messageIds },
+                            attributes: ['id', 'senderId']
+                        });
+                        
+                        const senderGroups = {};
+                        messages.forEach(message => {
+                            if (!senderGroups[message.senderId]) {
+                                senderGroups[message.senderId] = [];
+                            }
+                            senderGroups[message.senderId].push(message.id);
+                        });
+                        
+                        Object.keys(senderGroups).forEach(senderId => {
+                            io.to(`user-${senderId}`).emit('messageStatusUpdated', {
+                                messageIds: senderGroups[senderId],
+                                status: 'delivered'
+                            });
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error processing pending messages:', error);
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+            }
         });
         
         // Join a Chat Room
