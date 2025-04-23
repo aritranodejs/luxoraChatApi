@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 
 // Common Response
 const { response } = require('../utils/response.utils');
-const { redisClient } = require('../config/redis');
+const { isAccessTokenBlacklisted } = require('../utils/redis.utils');
 const accessTokenSecret = process.env.JWT_SECRET || "jwtsecret";
 // Token expiration durations
 const accessTokenExpiry = process.env.JWT_ACCESS_EXPIRY || '15m';
@@ -27,8 +27,7 @@ const authentication = async (req, res, next) => {
   const token = header.includes(" ") ? header.split(" ")[1] : header;
 
   // Check if token is blacklisted in Redis instead of global memory
-  const isBlacklisted = await redisClient.exists(`blacklist:${token}`);
-  if (isBlacklisted) {
+  if (await isAccessTokenBlacklisted(token)) {
     return response(res, {}, "Expired authorization token.", 401);
   }
 

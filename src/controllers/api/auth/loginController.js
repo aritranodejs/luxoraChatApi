@@ -7,8 +7,11 @@ const ejs = require('ejs');
 const { generateAccessToken, generateRefreshToken } = require('../../../middleware/auth');
 const { Op } = require('sequelize');
 const { User } = require('../../../models/User');
-const { redisClient } = require('../../../config/redis');
-const { getExpiryInSeconds } = require('../../../utils/token.utils');
+const { 
+    storeRefreshToken, 
+    deleteRefreshToken, 
+    blacklistAccessToken 
+} = require('../../../utils/redis.utils');
 const jwt = require('jsonwebtoken');
 
 const login = async (req, res) => {
@@ -141,11 +144,10 @@ const verifyOtp = async (req, res) => {
         // Generate new tokens
         const accessToken = generateAccessToken(user.toJSON());
         const refreshToken = generateRefreshToken(user.toJSON());
-        // Store refresh token in Redis
-        // Calculate expiry time in seconds
-        const refreshTokenExpiry = process.env.JWT_REFRESH_EXPIRY || '7d';
-        const expirySec = getExpiryInSeconds(refreshTokenExpiry);
-        await redisClient.set(`refresh_token:${refreshToken}`, user.id.toString(), { EX: expirySec });
+        
+        // Store refresh token in Redis using helper
+        await storeRefreshToken(refreshToken, user.id);
+        
         // Fetch user details without password
         let userDetails = await User.findOne({
             where: { id: { [Op.eq]: user.id } },
@@ -202,30 +204,13 @@ const logout = async (req, res) => {
         const header = req?.headers?.authorization;
         if (header) {
             const token = header.includes(" ") ? header.split(" ")[1] : header;
-            // Parse the token to get its expiration
-            try {
-                const decoded = jwt.decode(token);
-                if (decoded && decoded.exp) {
-                    // Calculate seconds until token expires
-                    const now = Math.floor(Date.now() / 1000);
-                    const ttl = Math.max(0, decoded.exp - now);
-                    
-                    // Store in Redis with TTL matching the token's remaining lifetime
-                    // This way blacklisted tokens automatically expire from Redis
-                    await redisClient.set(`blacklist:${token}`, '1', { EX: ttl }); 
-                } else {
-                    // If we can't decode, blacklist for 24 hours as fallback
-                    await redisClient.set(`blacklist:${token}`, '1', { EX: 86400 });
-                }
-            } catch (err) {
-                // If there's an error decoding, blacklist for 24 hours as fallback
-                await redisClient.set(`blacklist:${token}`, '1', { EX: 86400 });
-            }
+            // Blacklist the token using helper function
+            await blacklistAccessToken(token);
         }
 
         const { refreshToken } = req.body;
         // Remove refresh token from Redis if provided
-        if (refreshToken) await redisClient.del(`refresh_token:${refreshToken}`);
+        if (refreshToken) await deleteRefreshToken(refreshToken);
         
         // Update user's online status
         await User.update({ isOnline: false, lastSeen: new Date() }, {

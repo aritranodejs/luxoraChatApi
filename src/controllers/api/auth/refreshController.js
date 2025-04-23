@@ -1,11 +1,13 @@
 const jwt = require('jsonwebtoken');
-const { redisClient } = require('../../../config/redis');
 const { response } = require('../../../utils/response.utils');
 const { generateAccessToken, generateRefreshToken } = require('../../../middleware/auth');
-const { getExpiryInSeconds } = require('../../../utils/token.utils');
+const { 
+  getUserIdFromRefreshToken, 
+  deleteRefreshToken, 
+  storeRefreshToken 
+} = require('../../../utils/redis.utils');
 
 const refreshTokenSecret = process.env.JWT_REFRESH_SECRET || 'refreshsecret';
-const refreshTokenExpiry = process.env.JWT_REFRESH_EXPIRY || '7d';
 
 const refreshToken = async (req, res) => {
   try {
@@ -24,15 +26,15 @@ const refreshToken = async (req, res) => {
       // Differentiating between invalid or expired refresh token
       if (err.name === 'TokenExpiredError') {
         // Also remove from Redis if token is expired
-        await redisClient.del(token);
+        await deleteRefreshToken(token);
         return response(res, {}, 'Refresh token expired.', 401);
       }
       return response(res, {}, 'Invalid refresh token.', 403);
     }
 
     // Fetch the user ID associated with the token from Redis
-    // Make sure refreshToken is used as the key properly
-    const storedUserId = await redisClient.get(`refresh_token:${token}`);
+    // Use consistent key format with refresh_token: prefix
+    const storedUserId = await getUserIdFromRefreshToken(token);
     
     // If no user ID is found or the token is invalid
     if (!storedUserId) {
@@ -48,14 +50,12 @@ const refreshToken = async (req, res) => {
     const accessToken = generateAccessToken(decoded);
     const newRefreshToken = generateRefreshToken(decoded);
 
-    // Calculate expiry time in seconds
-    const expirySec = getExpiryInSeconds(refreshTokenExpiry);
-
-    // Remove the old refresh token from Redis
-    await redisClient.del(`refresh_token:${token}`);
+    // Remove the old refresh token from Redis using consistent key format
+    await deleteRefreshToken(token);
 
     // Store the new refresh token with its associated user ID and expiry
-    await redisClient.set(`refresh_token:${newRefreshToken}`, decoded.id.toString(), { EX: expirySec });
+    // Using consistent key format with refresh_token: prefix
+    await storeRefreshToken(newRefreshToken, decoded.id);
 
     // Return the new tokens in the response
     return response(res, { accessToken, refreshToken: newRefreshToken }, 'Token refreshed successfully.', 200);
