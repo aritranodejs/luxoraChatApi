@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { redisClient } = require('../../../config/redis');
 const { response } = require('../../../utils/response.utils');
-const { generateAuthToken, generateRefreshToken } = require('../../../middleware/auth');
+const { generateAccessToken, generateRefreshToken } = require('../../../middleware/auth');
 const { getExpiryInSeconds } = require('../../../utils/token.utils');
 
 const refreshTokenSecret = process.env.JWT_REFRESH_SECRET || 'refreshsecret';
@@ -45,7 +45,7 @@ const refreshToken = async (req, res) => {
     }
 
     // Generate new access token and refresh token
-    const accessToken = generateAuthToken(decoded);
+    const accessToken = generateAccessToken(decoded);
     const newRefreshToken = generateRefreshToken(decoded);
 
     // Calculate expiry time in seconds

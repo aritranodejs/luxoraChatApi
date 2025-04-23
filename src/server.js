@@ -141,9 +141,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// Token blacklist
-global.blacklistedTokens = new Set();
-
 // Routes
 app.get('/health', (req, res) => {
     return response(res, {}, 'Server is healthy', 200);

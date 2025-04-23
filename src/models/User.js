@@ -49,9 +49,6 @@ const User = sequelize.define('users', {
     passwordResetTokenExpiry: {
         type: DataTypes.DATE
     },
-    authToken: {
-        type: DataTypes.STRING
-    },
     role: {
         type: DataTypes.ENUM('admin', 'user'),
         defaultValue: 'user',
