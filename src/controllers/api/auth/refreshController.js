@@ -23,13 +23,16 @@ const refreshToken = async (req, res) => {
     } catch (err) {
       // Differentiating between invalid or expired refresh token
       if (err.name === 'TokenExpiredError') {
+        // Also remove from Redis if token is expired
+        await redisClient.del(token);
         return response(res, {}, 'Refresh token expired.', 401);
       }
       return response(res, {}, 'Invalid refresh token.', 403);
     }
 
     // Fetch the user ID associated with the token from Redis
-    const storedUserId = await redisClient.get(token);
+    // Make sure refreshToken is used as the key properly
+    const storedUserId = await redisClient.get(`refresh_token:${token}`);
     
     // If no user ID is found or the token is invalid
     if (!storedUserId) {
@@ -49,14 +52,15 @@ const refreshToken = async (req, res) => {
     const expirySec = getExpiryInSeconds(refreshTokenExpiry);
 
     // Remove the old refresh token from Redis
-    await redisClient.del(token);
+    await redisClient.del(`refresh_token:${token}`);
 
     // Store the new refresh token with its associated user ID and expiry
-    await redisClient.set(newRefreshToken, decoded.id.toString(), { EX: expirySec });
+    await redisClient.set(`refresh_token:${newRefreshToken}`, decoded.id.toString(), { EX: expirySec });
 
     // Return the new tokens in the response
     return response(res, { accessToken, refreshToken: newRefreshToken }, 'Token refreshed successfully.', 200);
   } catch (error) {
+    console.error('Token refresh error:', error);
     // General error handling
     return response(res, {}, error.message || 'An error occurred while refreshing the token.', 500);
   }

@@ -40,15 +40,7 @@ const login = async (req, res) => {
             return response(res, {}, 'User is not active.', 401);
         }
 
-        // Generate access and refresh tokens
-        const accessToken = generateAuthToken(user.toJSON());
-        const refreshToken = generateRefreshToken(user.toJSON());
-        // Store refresh token in Redis with expiry time
-        // Calculate expiry time in seconds
-        const refreshTokenExpiry = process.env.JWT_REFRESH_EXPIRY || '7d';
-        const expirySec = getExpiryInSeconds(refreshTokenExpiry);
-        await redisClient.set(refreshToken, user.id.toString(), { EX: expirySec });
-        return response(res, { email: user.email, accessToken, refreshToken }, 'User login successful.', 200);
+        return response(res, { email: user.email }, 'User login successful.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
     }
@@ -155,7 +147,7 @@ const verifyOtp = async (req, res) => {
         // Calculate expiry time in seconds
         const refreshTokenExpiry = process.env.JWT_REFRESH_EXPIRY || '7d';
         const expirySec = getExpiryInSeconds(refreshTokenExpiry);
-        await redisClient.set(refreshToken, user.id.toString(), { EX: expirySec });
+        await redisClient.set(`refresh_token:${refreshToken}`, user.id.toString(), { EX: expirySec });
         // Fetch user details without password
         let userDetails = await User.findOne({
             where: { id: { [Op.eq]: user.id } },
