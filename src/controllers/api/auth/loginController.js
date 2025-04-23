@@ -1,12 +1,14 @@
 const { Validator } = require('node-input-validator');
 const bcrypt = require('bcrypt');
-const { response } = require('../../../helpers/response');
-const { getUniqueCode } = require('../../../helpers/uniqueCode');
-const { transporter, emailTemplatePath, mailOption } = require('../../../helpers/mailer');
+const { response } = require('../../../utils/response.utils');
+const { getUniqueCode } = require('../../../utils/unique.utils');
+const { transporter, emailTemplatePath, mailOption } = require('../../../utils/mailer.utils');
 const ejs = require('ejs');
-const { generateAuthToken } = require('../../../middleware/auth');
+const { generateAuthToken, generateRefreshToken } = require('../../../middleware/auth');
 const { Op } = require('sequelize');
 const { User } = require('../../../models/User');
+const { redisClient } = require('../../../config/redis');
+const { getExpiryInSeconds } = require('../../../utils/token.utils');
 
 const login = async (req, res) => {
     try {
@@ -38,7 +40,15 @@ const login = async (req, res) => {
             return response(res, {}, 'User is not active.', 401);
         }
 
-        return response(res, { email : user?.email }, 'User login successfull.', 200);
+        // Generate access and refresh tokens
+        const accessToken = generateAuthToken(user.toJSON());
+        const refreshToken = generateRefreshToken(user.toJSON());
+        // Store refresh token in Redis with expiry time
+        // Calculate expiry time in seconds
+        const refreshTokenExpiry = process.env.JWT_REFRESH_EXPIRY || '7d';
+        const expirySec = getExpiryInSeconds(refreshTokenExpiry);
+        await redisClient.set(refreshToken, user.id.toString(), { EX: expirySec });
+        return response(res, { email: user.email, accessToken, refreshToken }, 'User login successful.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
     }
@@ -132,20 +142,27 @@ const verifyOtp = async (req, res) => {
 
         user.otp = null;
         user.otpExpired = null;
-        user.authToken = generateAuthToken({ ...user.toJSON() });
+        // Blacklist previous access token if exists
+        if (user.authToken) global.blacklistedTokens.add(user.authToken);
+        // Generate new tokens
+        const accessToken = generateAuthToken(user.toJSON());
+        const refreshToken = generateRefreshToken(user.toJSON());
+        // Save new auth token in user for logout tracking
+        user.authToken = accessToken;
         user.isOnline = true;
         await user.save();
-
+        // Store refresh token in Redis
+        // Calculate expiry time in seconds
+        const refreshTokenExpiry = process.env.JWT_REFRESH_EXPIRY || '7d';
+        const expirySec = getExpiryInSeconds(refreshTokenExpiry);
+        await redisClient.set(refreshToken, user.id.toString(), { EX: expirySec });
+        // Fetch user details without password
         let userDetails = await User.findOne({
-            where: {
-                id: { [Op.eq]: user.id }
-            },
-            attributes: {
-                exclude: ['password']
-            }
+            where: { id: { [Op.eq]: user.id } },
+            attributes: { exclude: ['password'] }
         });
-
-        return response(res, userDetails, 'Otp verified successfully.', 200);
+        // Include tokens in response
+        return response(res, { ...userDetails.toJSON(), accessToken, refreshToken }, 'Otp verified successfully.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
     }
@@ -191,13 +208,14 @@ const logout = async (req, res) => {
             return response(res, {}, 'User not found.', 404);
         }
 
-        // Add the token to the blacklist
-        blacklistedTokens.add(user.authToken);
-
+        const { refreshToken } = req.body;
+        // Blacklist access token
+        global.blacklistedTokens.add(user.authToken);
+        // Remove refresh token from Redis if provided
+        if (refreshToken) await redisClient.del(refreshToken);
         user.authToken = null;
         await user.save();
-
-        return response(res, {}, 'User logout successfull.', 200);
+        return response(res, {}, 'User logout successful.', 200);
     } catch (error) {
         return response(res, {}, error.message, 500);
     }

@@ -1,6 +1,6 @@
 const { Validator } = require('node-input-validator');
-const { response } = require('../../../helpers/response');
-const { transporter, emailTemplatePath, mailOption } = require('../../../helpers/mailer');
+const { response } = require('../../../utils/response.utils');
+const { transporter, emailTemplatePath, mailOption } = require('../../../utils/mailer.utils');
 const ejs = require('ejs');
 const { Op } = require('sequelize');
 const { Friend } = require('../../../models/Friend');

@@ -2,7 +2,7 @@ const express = require('express');
 const group = require('express-group-routes');
 
 // Helpers
-const { response } = require('../../helpers/response');
+const { response } = require('../../utils/response.utils');
 
 // Middleware
 const { authentication } = require('../../middleware/auth');

@@ -1,11 +1,11 @@
 const { Validator } = require('node-input-validator');
-const { response } = require('../../../helpers/response');
+const { response } = require('../../../utils/response.utils');
 const { Op } = require('sequelize');
 const { User } = require('../../../models/User');
 const { Friend } = require('../../../models/Friend');
 const { Message } = require('../../../models/Message');
 const encryptionKeyService = require('../../../services/EncryptionKeyService');
-const { encryptMessage, decryptMessage } = require('../../../helpers/encryptionHelper');
+const { encryptMessage, decryptMessage } = require('../../../utils/encryption.utils');
 const axios = require('axios');
 
 const chats = async (req, res) => {

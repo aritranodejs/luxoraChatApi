@@ -9,7 +9,7 @@ const helmet = require('helmet');
 const xss = require('xss');
 const sanitize = require('sanitize-html');
 const morgan = require('morgan');
-const { response } = require('./helpers/response');
+const { response } = require('./utils/response.utils');
 
 // Load environment variables from .env file
 dotenv.config();
@@ -120,7 +120,7 @@ io.engine.on("connection_error", (err) => {
 });
 
 io.setMaxListeners(20); // Increase the limit to 20 listeners
-const socketHelper = require('./helpers/socket')(io); // Initialize the helper functions
+const socketHelper = require('./utils/socket.utils')(io); // Initialize the socket utilities
 
 // Middleware to parse JSON and URL-encoded data with limit for 1mb payload
 app.use(express.json({ limit: '1mb' }));

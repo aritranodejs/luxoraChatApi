@@ -1,3 +1,7 @@
+/**
+ * Slug generation utilities for URL-friendly identifiers
+ */
+
 const { User } = require('../models/User');
 const slugify = require('slugify');
 

@@ -1,12 +1,12 @@
 const { Validator } = require('node-input-validator');
 const bcrypt = require('bcrypt');
 const salt = bcrypt.genSaltSync(10); 
-const { transporter, emailTemplatePath, mailOption } = require('../../../helpers/mailer');
+const { transporter, emailTemplatePath, mailOption } = require('../../../utils/mailer.utils');
 const ejs = require('ejs');
-const { response } = require('../../../helpers/response');
+const { response } = require('../../../utils/response.utils');
 const { Op } = require('sequelize');
 const { User } = require('../../../models/User');
-const { generateUniqueSlug } = require('../../../helpers/slugHelper');
+const { generateUniqueSlug } = require('../../../utils/slug.utils');
 
 const register = async (req, res) => {
     try {

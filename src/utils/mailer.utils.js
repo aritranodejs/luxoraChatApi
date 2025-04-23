@@ -1,3 +1,7 @@
+/**
+ * Email sending utilities using nodemailer
+ */
+
 // Nodemailer
 const nodemailer = require('nodemailer');
 
@@ -37,4 +41,4 @@ module.exports = {
     transporter,
     emailTemplatePath,
     mailOption
-};
+}; 

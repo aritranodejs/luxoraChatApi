@@ -2,11 +2,20 @@
 const jwt = require('jsonwebtoken');
 
 // Common Response
-const { response } = require('../helpers/response');
+const { response } = require('../utils/response.utils');
 const accessTokenSecret = process.env.JWT_SECRET || "jwtsecret";
+// Token expiration durations
+const accessTokenExpiry = process.env.JWT_ACCESS_EXPIRY || '15m';
+const refreshTokenSecret = process.env.JWT_REFRESH_SECRET || 'refreshsecret';
+const refreshTokenExpiry = process.env.JWT_REFRESH_EXPIRY || '7d';
 
 const generateAuthToken = ({ id, role, name, email }) => {
-  return jwt.sign({ id, role, name, email }, accessTokenSecret);
+  return jwt.sign({ id, role, name, email }, accessTokenSecret, { expiresIn: accessTokenExpiry });
+};
+
+// Secret and generator for long-lived refresh tokens
+const generateRefreshToken = ({ id, role, name, email }) => {
+  return jwt.sign({ id, role, name, email }, refreshTokenSecret, { expiresIn: refreshTokenExpiry });
 };
 
 const authentication = (req, res, next) => {
@@ -52,6 +61,7 @@ const roleAuthorization = (roleString) => (req, res, next) => {
 
 module.exports = {
   generateAuthToken,
+  generateRefreshToken,
   authentication,
   roleAuthorization
 };

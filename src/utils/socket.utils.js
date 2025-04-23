@@ -1,3 +1,7 @@
+/**
+ * Socket.io utilities for real-time communication
+ */
+
 const { setupMessageStatusHandlers } = require('../controllers/api/user/chatController');
 const { setupOnlineStatusHandlers } = require('../controllers/api/user/userController');
 const { Message } = require('../models/Message');
@@ -199,23 +203,20 @@ module.exports = (io) => {
                 console.log(`User ${userId} is not connected.`);
             }
         },
-        emitToSocket: (socketId, event, data) => {
-            io.to(socketId).emit(event, data);
-        },
-        getConnectedUsers: () => {
-            return Object.keys(userSockets);
-        },
-        getSocketId: (userId) => {
-            return userSockets[userId];
-        },
-        joinRoom: (socket, room) => {
-            socket.join(room);
-        },
-        leaveRoom: (socket, room) => {
-            socket.leave(room);
-        },
         emitToRoom: (room, event, data) => {
             io.to(room).emit(event, data);
+        },
+        broadcastToAll: (event, data) => {
+            io.emit(event, data);
+        },
+        isUserConnected: (userId) => {
+            return !!userSockets[userId];
+        },
+        getSocketId: (userId) => {
+            return userSockets[userId] || null;
+        },
+        getUserSockets: () => {
+            return userSockets;
         }
     };
-};
+}; 

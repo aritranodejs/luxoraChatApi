@@ -1,4 +1,4 @@
-const { response } = require('../../../helpers/response');
+const { response } = require('../../../utils/response.utils');
 const { Op } = require('sequelize');
 const { User } = require('../../../models/User');
 

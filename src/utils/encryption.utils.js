@@ -1,3 +1,7 @@
+/**
+ * Encryption utilities for secure data handling
+ */
+
 const crypto = require('crypto');
 
 /**
