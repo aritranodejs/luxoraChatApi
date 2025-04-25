@@ -206,7 +206,7 @@ const handleAIResponse = async (message) => {
         //     }
         // });
         const payload = {
-            model: "llama3-8b-8192", // You can also try: mixtral-8x7b-32768
+            model: "gemma2-9b-it", // You can also try: llama3-8b-8192
             messages: [
                 {
                     role: "user",
