@@ -11,6 +11,10 @@ const Setting = sequelize.define('settings', {
     },
     value: {
         type: DataTypes.STRING
+    },
+    isForUser: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
     }
 }, {
     timestamps: true

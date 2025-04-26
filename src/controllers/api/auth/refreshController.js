@@ -55,7 +55,7 @@ const refreshToken = async (req, res) => {
 
     // Store the new refresh token with its associated user ID and expiry
     // Using consistent key format with refresh_token: prefix
-    await storeRefreshToken(newRefreshToken, decoded.id);
+    await storeRefreshToken(newRefreshToken, decoded.id, process.env.JWT_REFRESH_EXPIRY);
 
     // Return the new tokens in the response
     return response(res, { accessToken, refreshToken: newRefreshToken }, 'Token refreshed successfully.', 200);

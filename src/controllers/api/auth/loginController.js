@@ -146,7 +146,7 @@ const verifyOtp = async (req, res) => {
         const refreshToken = generateRefreshToken(user.toJSON());
         
         // Store refresh token in Redis using helper
-        await storeRefreshToken(refreshToken, user.id);
+        await storeRefreshToken(refreshToken, user.id, process.env.JWT_REFRESH_EXPIRY);
         
         // Fetch user details without password
         let userDetails = await User.findOne({

@@ -11,6 +11,10 @@ const UserSetting = sequelize.define('users_settings', {
     },
     settingId: {
         type: DataTypes.BIGINT
+    },
+    value: {
+        type: DataTypes.STRING,
+        allowNull: true // Allow null so we can fall back to global setting
     }
 }, {
     timestamps: true

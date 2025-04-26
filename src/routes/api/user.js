@@ -11,7 +11,8 @@ const { authentication } = require('../../middleware/auth');
 const userController = require('../../controllers/api/user/userController');
 const friendController = require('../../controllers/api/user/friendController');
 const chatController = require('../../controllers/api/user/chatController');
-
+const settingController = require('../../controllers/api/user/settingController');
+const userSettingController = require('../../controllers/api/user/userSettingController');
 // Router
 const router = express.Router();
 
@@ -42,6 +43,17 @@ router.group('/chats', (router) => {
     router.get('/get-chats', chatController.chats);
     router.post('/send-message', chatController.store);
     router.post('/update-message-status', chatController.updateMessageStatus);
+});
+
+router.group('/settings', (router) => {
+    router.use(authentication);
+    router.get('/:key', settingController.show);
+});
+
+router.group('/user-settings', (router) => {
+    router.use(authentication);
+    router.get('/', userSettingController.index);
+    router.post('/update', userSettingController.update);
 });
 
 module.exports = router;
