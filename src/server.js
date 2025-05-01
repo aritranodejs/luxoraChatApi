@@ -70,7 +70,7 @@ app.use((req, res, next) => {
 });
 
 // Morgan Middleware
-app.use(morgan('combined'));
+app.use(morgan('combined')); // log all requests to the console
 
 // Cors Middleware
 app.use(cors({
