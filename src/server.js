@@ -34,7 +34,7 @@ app.use(compression());
 // Trust Proxy (Ensures real IP detection)
 app.set('trust proxy', 1); // Trust first proxy (if behind NGINX, Cloudflare, etc.)
 
-// Improve scalability by applying rate limiting
+// Improve scalability by applying rate limiting // prevent brute force and dos attack
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 200, // Allow 200 requests per window per IP
@@ -186,9 +186,12 @@ app.get('/socket-test', (req, res) => {
 // Relation Model
 require("./models/Relation");
 
+// Apply rate limiting for security // prevent brute force and dos attack
+app.use(limiter);
+
 // API routes
 const authRoutes = require('./routes/api/auth');
-app.use('/api/auth', limiter, authRoutes); // Apply rate limiting for security // prevent brute force and dos attack
+app.use('/api/auth', authRoutes); 
 
 const userRoutes = require('./routes/api/user');
 app.use('/api/user', userRoutes);
