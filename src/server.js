@@ -135,12 +135,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// Global variables
-app.use((req, res, next) => {
-    res.locals.user = req.user;
-    next();
-});
-
 // Routes
 app.get('/health', (req, res) => {
     return response(res, {}, 'Server is healthy', 200);
